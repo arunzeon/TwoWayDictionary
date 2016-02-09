@@ -1,0 +1,322 @@
+#include <iostream>
+#include<vector>
+#include<memory>
+#include<map>
+
+using namespace std;
+
+typedef enum{
+    HOME = 0,
+    OFFICE,
+    PERSONAL,
+    END_NUM = PERSONAL
+}PTYPE;
+
+typedef pair<string, PTYPE> myPhone;
+typedef vector<myPhone> PhoneDetails;
+
+class Person
+{
+protected:
+        string name;
+        PhoneDetails PhoneSet;
+public:
+        virtual void You() = 0;
+        virtual ~Person(){
+            cout << " person Des" << endl;
+        }
+
+        virtual void loaddata(string &n, myPhone &pdetail){
+            // Some defauling...
+        }
+
+        virtual void setName(string n){
+        }
+        virtual void setPhones(const myPhone &p){
+        }
+
+        Person(){
+                cout << " Person Con" << endl;
+        }
+        Person(const Person& rhs){
+            cout << " COPY con of Base Person" << endl;
+        }
+
+        Person& operator=(const Person& rhs){
+            cout << " EPerson Assignment" << endl;
+            return *this;
+        }
+
+        //virtual int What();
+        friend ostream& operator << (ostream& os, const Person& instance);
+        friend class CustomDeleter;
+};
+
+class CustomDeleter{
+public:
+      void operator()(Person * p) {
+            cout << " In Custom Deleter" << endl;
+          delete p;
+      }
+};
+
+
+class EPerson:public Person{
+    int valOfDerived;
+
+public:
+    void You(){
+        cout << " EPerson derived " << valOfDerived << endl;
+    }
+
+    virtual void loaddata(string &n, myPhone &pdetail)
+    {
+
+    }
+
+    virtual void setName(string n)
+    {
+        name = n;
+    }
+
+    virtual void setPhones(const myPhone &p)
+    {
+        PhoneSet.push_back(p);
+    }
+
+
+    EPerson(const EPerson& rhs):Person(rhs){
+        cout << " COPY Con of EPERSON" << endl;
+    }
+
+    EPerson& operator=(const EPerson& rhs){
+        cout << " EPERSON Assignment" << endl;
+        Person::operator=(rhs);
+        return *this;
+    }
+
+    EPerson(int v):valOfDerived(v){
+        cout << " EPerson Con" << endl;
+    }
+
+    EPerson(){}
+
+    int What(){
+            return valOfDerived;
+    }
+    ~EPerson(){
+        cout << " EPerson Des" << endl;
+    }
+    friend ostream& operator << (ostream& os, const Person& instance);
+        /*
+        friend ostream& operator <<(ostream& os, const Person& rhs)
+        {
+            return os << rhs.You();
+        }
+        */
+};
+
+ostream& operator << (ostream& os, const Person& instance)
+{
+        os << " Display";
+        Person *tmp;
+        if(tmp == dynamic_cast<const Person*>(&instance))
+                cout << " Dis person";
+        else
+                cout << " Dis EPerson";
+        return os;
+}
+
+struct BasicInfo
+{
+    string _name;
+    string _phone;
+    PTYPE  _ptype;
+BasicInfo():_name(""),_phone(""),_ptype(HOME){}
+};
+
+
+typedef Person* OBJPTR;
+
+
+//typedef unordered_map<string, shared_ptr<Person> > Myunmap;
+typedef shared_ptr<Person> MyPtr;
+typedef multimap<string, shared_ptr<Person> > Mymmap;
+typedef multimap<string, shared_ptr<Person> > Myunmap;
+typedef multimap<string, MyPtr> MyMap;
+typedef multimap<string, MyPtr>::iterator ITRMyx;
+typedef pair<MyMap::iterator, MyMap::iterator> ITR_MyxMap;
+
+
+
+
+// Lets have only ine instance of storage management
+class DataBase
+{
+    MyMap NameContain;
+    MyMap PhoneContain;
+private:
+    ~DataBase();
+	DataBase();
+   	DataBase(const DataBase&);
+	DataBase& operator=(const DataBase&);
+public:
+    static DataBase *instance;
+	static DataBase *GetDataBase();
+	static DataBase *ResetDataBase();
+
+    friend class Display;
+public:
+    void updateQ1(string pkey, MyPtr obj);
+    void updateQ2(string pkey, MyPtr obj);
+    void Display(); // could be other class taking db and achieve how it wants to display it
+};
+
+DataBase::DataBase()
+{
+    cout << " DataBase initalizing..." << endl;
+}
+
+DataBase::~DataBase()
+{
+    cout << " Data Uninitalizing...." << endl;
+}
+
+DataBase* DataBase::instance = NULL;
+DataBase* DataBase::GetDataBase()
+{
+
+	if(!instance)
+	   instance = new DataBase;
+	return DataBase::instance;
+
+//	static DataBase instancev1;
+//return instancev1;
+}
+
+
+DataBase* DataBase::ResetDataBase()
+{
+	delete instance;
+	instance = NULL;
+	return instance;
+}
+
+
+// Could make LoadData as freind of Database.. or the datatype from here
+class LoadData
+{
+    public:
+           LoadData(DataBase *&db);
+           LoadData(){}
+};
+
+inline MyPtr make_sharedObj(Person* obj)
+{
+    cout << " In Make_Shared object" << endl;
+    return MyPtr(obj, CustomDeleter());
+}
+
+
+void
+DataBase::updateQ1(string pkey,MyPtr obj)
+{
+    cout << " Inserting the contents NameContain" << endl;
+    NameContain.insert(make_pair(pkey,obj));
+
+}
+
+// having function just to keep it clean
+void
+DataBase::updateQ2(string pkey,MyPtr obj)
+{
+    cout << " Inserting the contents Phone--Contain" << endl;
+    PhoneContain.insert(make_pair(pkey,obj));
+
+}
+
+void
+DataBase::Display()
+{
+    cout << " NAME CONTIAN:" << endl;
+     ITR_MyxMap nt= NameContain.equal_range("One");
+        for(ITRMyx it= nt.first; it!= nt.second; it++){
+            cout << it->first << " --> ";
+            // Works liek this too with friend cout << it->second; //need to to refine
+            it->second->You();
+            cout << " Cnt:" << it->second.use_count() << endl;
+
+// HOW TO????
+            // Trying to trigger derived class function to determine the type..
+//            EPerson *check = dynamic_cast<EPerson *>(it->second);
+ //           if(check != NULL)
+ //                   cout << " Its Dervied....." << endl;
+            cout << endl;
+    }
+
+
+    cout << " PHONE CONTAIN" << endl;
+     ITR_MyxMap pt= PhoneContain.equal_range("345678");
+    for(ITRMyx it= pt.first; it!= pt.second; it++){
+            cout << it->first << " --> ";
+            // Works liek this too with friend cout << it->second; //need to to refine
+            it->second->You();
+            cout << " Cnt:" << it->second.use_count() << endl;
+
+// HOW TO????
+            // Trying to trigger derived class function to determine the type..
+//            EPerson *check = dynamic_cast<EPerson *>(it->second);
+//            if(check != NULL)
+//                    cout << " Its Dervied....." << endl;
+            cout << endl;
+    }
+
+}
+// lets have reference to pointer .. and manipulate the stuff
+LoadData::LoadData(DataBase *&db)
+{
+    cout << " I am in LoadData" << endl;
+    //vector of phone and type
+    //as stuff in object
+#if 0
+    phone type, phone type ===> [[ name, --> vector<pairs> ==> vector<string, type> (phone's and types) ]]
+    vector<BasicInfo> ==> BasicInfo==> pair<phone type>
+    thus vector<pair<phone,type> > == ALL
+    objptr=8888888888=> name, ALL
+    name --objprt
+    phone -- objptr
+#endif
+    auto _obj = make_sharedObj(new EPerson);
+    _obj->setName("One"); //setPhones
+    _obj->setPhones(make_pair("12345",HOME));
+    _obj->setPhones(make_pair("23456",OFFICE));
+
+    db->updateQ1("One",_obj);
+    db->updateQ2("12345",_obj);
+    db->updateQ2("23456",_obj);
+
+
+    _obj = make_sharedObj(new EPerson);
+    _obj->setName("Two");
+    _obj->setPhones(make_pair("345678",HOME));
+    _obj->setPhones(make_pair("456789",OFFICE));
+    db->updateQ1("Two",_obj);
+    db->updateQ2("345678",_obj);
+    db->updateQ2("456789",_obj);
+
+    db->Display();
+
+
+}
+
+
+int main()
+{
+    // need to have more eligaent way to do this
+    DataBase *db = DataBase::GetDataBase();
+    LoadData ld(db);
+
+    //db->ResetDataBase();
+    cout << "Hello world!" << endl;
+    return 0;
+}
